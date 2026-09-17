@@ -180,6 +180,19 @@ cp examples/config.example.toml /mnt/c/AI/display-rotate/config.toml   # then ed
 - **Device names are not stable across reboots, GPU driver updates, or cable changes.** Run `-ListDevices` again and re-point `config.toml` / `-Device` when a display is not found.
 - **This project ships no installer and no auto-update.** Deployment is "copy the exe".
 
+## TODO
+
+Planned work, roughly in priority order. **None of this is implemented yet** — an issue or a PR is welcome.
+
+- **Enumerate displays and let the user pick one.** Today the target display must be named by hand: `config.toml`'s `device`, or the script's `-Device`, both taking a raw GDI name like `\\.\DISPLAY5`. The script can already list what is connected (`rotate-display.ps1 -ListDevices`), but you still have to read that table and type the name back. Wanted:
+  - the tray app enumerates active displays at startup (and refreshes on display-topology change) and offers **one submenu per display**, each with its own orientation radio items and its own check mark;
+  - the script accepts something friendlier than a raw device name — an index, the monitor's friendly name, or `primary`;
+  - the chosen display is remembered instead of hard-coded.
+- **Make the tray icon readable on a light taskbar.** The shipped icon is a white line drawing, so it vanishes against a light taskbar. Either ship light/dark variants chosen by the system theme, or switch to a coloured icon.
+- **Finish real-hardware acceptance of the tray path.** The one-shot CLI (`--set`) is verified on hardware; the tray itself still is not — icon legibility at 28 px (175 % DPI) and 16 px (100 % DPI), whether the menu check marks follow the *actual* orientation, double-click toggle, and the `重新初始化显示(拔插)` item.
+- **Verify the reason this project exists.** Whether absolute-positioning input (touch / pen / injected pointers) really does follow the rotation after the CCD unplug/replug cycle is still unconfirmed on hardware.
+- **Optional: remember each display's orientation**, so a rotated monitor comes back the way you left it after being disconnected and reconnected.
+
 ## Related
 
 Same stack as [llama-watch](https://github.com/Milliontimes/llama-watch) and [idm-watch](https://github.com/Milliontimes/idm-watch) (zero third-party deps, zig cross-compile, silent Windows background utility).

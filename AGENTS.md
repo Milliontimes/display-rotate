@@ -91,6 +91,14 @@
   ```
 - **`.cargo/config.toml` 是 `build-win.sh` 生成的文件**，内容取决于构建机上 `~/.local/bin` 是否可写：可写 → 装到共享的 `~/.local/bin/zig-cc`（同时**修好同机 llama-watch 那条链**）；不可写（沙箱/CI）→ 退回仓内 `.zig-cache/zig-cc`。两种情况下都**必须先跑一次 `build-win.sh`**，否则 `cargo build --target x86_64-pc-windows-gnu` 会因为 linker 路径不存在而失败。
 
+### T5 — 显示器枚举与选择（未做）
+
+- **背景 / 需求**：用户 2026-09-18 提出，"把显示器的读取与选择"列入待办；README 的 `## TODO` / `## 待办` 小节已是公开版（中英对称），本条是本机侧的执行口径。
+- **现状**：目标屏只能手写 —— `config.toml` 的 `device` 或脚本 `-Device`，两者都要原始 GDI 名（`\\.\DISPLAY5`）。脚本侧**已经能枚举**（`-ListDevices` 走 `QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS)` + `DISPLAYCONFIG_SOURCE_DEVICE_NAME`/`TARGET_DEVICE_NAME`），但枚举与选择没有接起来，用户仍要人肉读表再敲名字。托盘侧目前**完全没有**枚举。
+- **要做**：① 托盘启动时枚举活动显示器、并在显示拓扑变化时刷新，菜单改成**每块屏一个子菜单**（各带方向单选项 + 勾选）；② 脚本接受比原始设备名更友好的定位（序号 / 监视器友好名 / `primary`）；③ 选中的屏持久化，不再写死。
+- **可复用的现成件**：`scripts/rotate-display.ps1` 里的 `DispPath`/`List(out string)` 与 `TechName`/`RotationName` 映射（含"枚举 7 被跳过"的修正）可直接搬到 Rust 侧做等价枚举。
+- **注意**：`DISPLAYCONFIG_SOURCE_DEVICE_NAME` 对**内置屏**可能 `rc=0` 但返回空串（本机 `\\.\DISPLAY1` 就是），所以"友好名"不能只依赖它，要回落到 `EnumDisplaySettings` 的宽高/位置做标识。
+
 ### T4 — ~~定部署位置~~（已定，2026-09-17）
 
 - **结论**：部署目录 = **`C:\AI\display-rotate\`**（WSL 侧 `/mnt/c/AI/display-rotate/`），与同机 `llama-watch` 并列，沿用现有习惯。用户已拍板。
@@ -111,5 +119,7 @@
 | 2026-09-17 | `.cargo/config.toml` 改指 `~/.local/bin/zig-cc` | 原值指向被 gitignore 的 `.zig-cache/`，发布后会失效；文件本身由 `build-win.sh` 生成 |
 | 2026-09-17 | 补 README 的「一次性 CLI 动作」小节（EN/ZH 对称） | 按 `main.rs` 的 `usage()` 原文写：`--set/--toggle/--cycle/--status` + `--device/--down-seconds/--log-dir/--max-log-mb`、退出码 0/1/2、优先级链 |
 | 2026-09-18 | 🔴 修 `set_orientation` 未写回 `dmDisplayOrientation` | 头号 bug：宽高变则 -2，宽高不变则静默 no-op；四向已实机验收 |
+| 2026-09-18 | README 新增 `## TODO` / `## 待办` 小节（中英对称） | 公开路线图；头一条 = 显示器枚举与选择，另含浅色任务栏图标、托盘实机验收、指针是否跟随、可选记忆每屏朝向 |
+| 2026-09-18 | 新增 T5 — 显示器枚举与选择（未做） | 记下可复用的现成件（脚本的 `DispPath`/`List`）与内置屏 `SOURCE_DEVICE_NAME` 返回空串的坑 |
 | 2026-09-18 | 记录 `\\wsl.localhost\` 缓存 exe 的环境坑 | 同名重建后执行仍跑旧字节，验收必须换唯一文件名 |
 | 2026-09-17 | 只读运行 exe 验证通过 | `--version`/`--help`/`--status` 均正常，`--status` 读回 `\\.\DISPLAY5 = 0°` |
