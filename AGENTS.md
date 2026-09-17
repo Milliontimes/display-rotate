@@ -36,6 +36,11 @@
   修法：包装脚本里**剔除 `-Wl,-Bdynamic`**。试过 GNU 精确写法 `-l:libwindows.0.52.0.a`，**不行** —— COFF 的 lld-link 不认 `-l:`（报 `could not open ':libwindows...'`）。
   另外 zig 默认缓存 `~/.cache/zig` 在只读 HOME 下报 `unable to create compilation: ReadOnlyFileSystem`，需把 `ZIG_LOCAL_CACHE_DIR`/`ZIG_GLOBAL_CACHE_DIR` 指向仓内。
   ⚠️ **同机的 `llama-watch` 现在就是这个状态、编不过**（`~/.local/bin/zig-cc` 是没打这两个补丁的旧版），本项目 `build-win.sh` 里已是修好的版本。
+- 🔴 **`\\wsl.localhost\` 会缓存可执行文件**（2026-09-18 实测，踩了很久）：在同一个 UNC 路径上重建 exe 后，从 Windows 侧按原路径执行**可能仍跑旧字节**——表现为新加的 `eprintln!` 死活不打印、行为与旧版完全一致。**验收/排障时必须每次把 exe 复制成唯一文件名再执行**，否则你会对着已经修好的代码怀疑人生。
+- 🔴 **`set_orientation` 必须真正写回 `dmDisplayOrientation`**（2026-09-18 修，本项目的头号 bug）：只置 `dmFields` 掩码（`DM_DISPLAYORIENTATION|DM_PELSWIDTH|DM_PELSHEIGHT`）而不写值，API 收到的仍是**旧方向 + 新宽高**，于是
+  - 宽高需要变化时（0↔90/270）自相矛盾 ⇒ `DISP_CHANGE_BADMODE(-2)`
+  - 宽高恰好不变时（0↔180、或已在竖屏时切 90/270）整条请求退化成 **no-op：返回 0 却什么都没做**（曾出现"→ 90° 已提交"但 `--status` 仍报 270°）
+  ⇒ 排查这类问题的正确姿势是**在提交前把待提交字段全量打出来**（本仓库已保留该行 `[rotate] submit ...`）：弹窗里那组数字是本地算出来的，不代表 API 收到了什么。
 - **NVIDIA 控制面板无接口**：`nvcplui.exe` 是封闭 GUI，无 CLI/COM；显示器方向本来走 Windows 通用显示驱动模型（GDI/CCD），与显卡厂商无关。
 - **在 WSL 里调宿主机 API**：`pwsh` 是 Windows 进程，**不认 `/home/...` 路径**，传脚本要用 UNC（`\\wsl.localhost\Ubuntu-26.04\...`）。
 - **`Write-Host "..." -f $a,$b` 会被解析成 `-ForegroundColor` 而报错**，必须写成 `Write-Host ("..." -f $a,$b)`。
@@ -75,7 +80,9 @@
   独立校验：`PE32+ / x86-64 / Subsystem=2 (WINDOWS_GUI)`；导入表含 `ChangeDisplaySettingsExW`/`SetDisplayConfig`/`QueryDisplayConfig`/`Shell_NotifyIconW`/`CreateIconFromResourceEx`/`TrackPopupMenu`/`CheckMenuRadioItem`；**`SendMessageW`/`SystemParametersInfoW`/`SetThreadExecutionState`/`PostMessageW` 导入数为 0**（确认没走 `SC_MONITORPOWER`）。`cargo test` = 21/21。
 - **运行（只读部分）：已做（2026-09-17）**。用 pwsh 从有 console 的父进程调 exe，跑了 `--version` / `--help` / `--status`（**只读动作，没碰 `--set`/`--toggle`/`--cycle`**）：`--version` → `display-rotate v0.1.0`；`--status` → `\\.\DISPLAY5 = 0°`，**读回的正是当前实际朝向**。⇒ zig 链接出的 PE 能加载、能跑、能正确读显示器状态。
   ⚠️ 顺带推翻一个说法：**GUI 子系统下 stdout 并非必然丢失** —— 从终端（或重定向输出）调用时 `--status`/`--help` 正常打印，只有从资源管理器双击才无处可写。README 已按这个实际情况写。
-- **运行（会改屏幕的部分）：未做**（用户在实时使用这块屏）。**待验收**：托盘图标在 175%(28px)/100%(16px) 下的清晰度、四个方向单选项的勾选是否反映实际朝向、双击 0°↔270° toggle、`重新初始化显示(拔插)` 的实际返回码与显示器是否会短暂黑一下、以及**绝对定位输入是否真的跟着恢复**（这才是这个项目的立项目的）。
+- **运行（会改屏幕的部分）：CLI 四向已实机验收（2026-09-18）**。修掉"没写回 `dmDisplayOrientation`"后，`--set 90/180/270/0` 逐个跑通，**每步都用独立的 `EnumDisplaySettingsA` 探针读回**（不依赖 app 自报）：
+  `90°→orient=1 1080x1920` / `180°→orient=2 1920x1080` / `270°→orient=3 1080x1920` / `0°→orient=0 1920x1080`，全 exit=0。
+- **仍未验收（托盘交互）**：托盘图标的实际观感（175%/28px 与 100%/16px）、菜单勾选是否随实际朝向刷新、双击 toggle、`重新初始化显示(拔插)` 的返回码与黑屏时长、以及**绝对定位输入是否真的跟着恢复**（这才是项目的立项目的）。原口径：托盘图标在 175%(28px)/100%(16px) 下的清晰度、四个方向单选项的勾选是否反映实际朝向、双击 0°↔270° toggle、`重新初始化显示(拔插)` 的实际返回码与显示器是否会短暂黑一下、以及**绝对定位输入是否真的跟着恢复**（这才是这个项目的立项目的）。
 - **建议首次验收用脚本而非 exe**（脚本有退出码、可 `-WhatIf`，且不依赖托盘）：
   ```bash
   pwsh -ExecutionPolicy Bypass -File <repo>/scripts/rotate-display.ps1 -ListDevices
@@ -103,4 +110,6 @@
 | 2026-09-17 | `.gitignore` 放行 `Cargo.lock` | 二进制 crate 应锁版本；唯一依赖 `windows-sys 0.52.0` |
 | 2026-09-17 | `.cargo/config.toml` 改指 `~/.local/bin/zig-cc` | 原值指向被 gitignore 的 `.zig-cache/`，发布后会失效；文件本身由 `build-win.sh` 生成 |
 | 2026-09-17 | 补 README 的「一次性 CLI 动作」小节（EN/ZH 对称） | 按 `main.rs` 的 `usage()` 原文写：`--set/--toggle/--cycle/--status` + `--device/--down-seconds/--log-dir/--max-log-mb`、退出码 0/1/2、优先级链 |
+| 2026-09-18 | 🔴 修 `set_orientation` 未写回 `dmDisplayOrientation` | 头号 bug：宽高变则 -2，宽高不变则静默 no-op；四向已实机验收 |
+| 2026-09-18 | 记录 `\\wsl.localhost\` 缓存 exe 的环境坑 | 同名重建后执行仍跑旧字节，验收必须换唯一文件名 |
 | 2026-09-17 | 只读运行 exe 验证通过 | `--version`/`--help`/`--status` 均正常，`--status` 读回 `\\.\DISPLAY5 = 0°` |

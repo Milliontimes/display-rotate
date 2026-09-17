@@ -263,7 +263,27 @@ mod imp {
         };
         dm.dmPelsWidth = nw;
         dm.dmPelsHeight = nh;
+        // ⚠️ 这一行不能少 (2026-09-18 修): 只置 dmFields 掩码而不写值, API 收到的仍是旧方向,
+        // 于是"方向没变 + 宽高变了"自相矛盾 ⇒ DISP_CHANGE_BADMODE(-2);
+        // 而宽高恰好没变时整条请求退化成 no-op, 返回成功却什么都没做。
+        unsafe {
+            dm.Anonymous1.Anonymous2.dmDisplayOrientation = target.devmode_value();
+        }
         dm.dmFields |= DM_DISPLAYORIENTATION | DM_PELSWIDTH | DM_PELSHEIGHT;
+
+        // 提交前把现场打出来: 这类失败(BADMODE)只有拿到实际字段才能定位,
+        // 弹窗里那组数字是本地算出来的, 不代表 API 收到了什么。
+        eprintln!(
+            "[rotate] submit dev={device} dmSize={} dmDriverExtra={} dmFields=0x{:X} \
+             orient={} {}x{}@{}Hz",
+            dm.dmSize,
+            dm.dmDriverExtra,
+            dm.dmFields,
+            unsafe { dm.Anonymous1.Anonymous2.dmDisplayOrientation },
+            dm.dmPelsWidth,
+            dm.dmPelsHeight,
+            dm.dmDisplayFrequency
+        );
 
         let code = unsafe {
             ChangeDisplaySettingsExW(
