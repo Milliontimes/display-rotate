@@ -1,0 +1,11 @@
+# ⚠️ 本文件由 build-win.sh 生成并覆盖，不要手改。
+# 首次使用前先跑一次：  bash build-win.sh
+#
+# linker 指向一个 zig 包装脚本，它做三件必要的事（详见 build-win.sh 内注释）：
+#   1) 剔除 rustc 传来的 -lmsvcrt / -lpthread（GNU 工具链遗留，与 zig 的 CRT 冲突）
+#   2) 剔除 -Wl,-Bdynamic（否则 windows-sys 0.52 的静态归档 libwindows.0.52.0.a 找不到）
+#   3) 把 zig 缓存指到可写目录（只读 HOME 下默认的 ~/.cache/zig 写不进）
+# build-win.sh 优先装到 ~/.local/bin/zig-cc（同机其它项目共用同一条链）；
+# 只读 HOME（沙箱 / CI）时退回仓内 .zig-cache/zig-cc 并改写本文件。
+[target.x86_64-pc-windows-gnu]
+linker = "/home/milliontimes/.local/bin/zig-cc"

@@ -1,0 +1,16 @@
+# Rust
+/target
+/.zig-cache
+# Cargo.lock 故意入库: 这是二进制 crate, 锁死 windows-sys 版本
+
+# 本地配置(含真实设备名), 只提交 examples/config.example.toml
+/config.toml
+
+# 构建产物
+*.exe
+*.pdb
+
+# 编辑器
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,19 @@
+# display-rotate 配置示例 / Example configuration
+#
+# 用法: 复制为 exe 同目录的 config.toml
+# Usage: copy next to display-rotate.exe as config.toml
+#
+# 路径/设备名请用**单引号**（TOML 字面字符串，反斜杠原样保留），
+# 不要用双引号：双引号里的 \D \d 可能非法转义，设备名会被解析坏。
+# Wrap values in **single quotes** (TOML literal string, backslashes kept
+# verbatim). Do NOT use double quotes.
+
+[display]
+# GDI 设备名 / GDI device name.
+# 多显示器时用它指定要旋转的那一块；用 -ListDevices（脚本）枚举可用设备。
+# Names the single display to rotate; enumerate with -ListDevices (script).
+device = '\\.\DISPLAY5'
+
+# CCD 重初始化（真·拔插）时显示器摘除的时长，秒。默认 2。
+# Detach window in seconds for the CCD unplug/replug re-init cycle. Default 2.
+# down_seconds = 2
